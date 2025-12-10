@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Delton Gaming: Neon Overdrive</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        /* --- GLOBAL & RESET --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 100;
+        }
+
+        /* --- HUD --- */
+        #hud {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+
+        .hud-header {
+            position: absolute;
+            top: 0; left: 0; width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+        }
+
+        .score-display {
+            text-align: left;
+            color: #fff;
+            text-shadow: 0 0 10px #0ff;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .sub-score { font-size: 0.8rem; color: #888; font-weight: 400; }
+
+        .hud-controls {
+            pointer-events: auto;
+            display: flex;
+            gap: 15px;
+        }
+
+        .icon-btn {
+            background: rgba(0, 20, 40, 0.8);
+            border: 1px solid #0ff;
+            color: #0ff;
+            width: 45px; height: 45px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer;
+            transition: all 0.1s;
+            box-shadow: 0 0 5px rgba(0,255,255,0.3);
+        }
+        .icon-btn:active { transform: scale(0.95); background: #0ff; color: #000; }
+
+        /* Powerup Bars */
+        #powerup-container {
+            position: absolute;
+            top: 80px; left: 20px;
+            width: 150px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .p-bar {
+            width: 100%; height: 6px;
+            background: #333;
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 5px #000;
+        }
+        .p-fill { height: 100%; width: 100%; transform-origin: left; transition: transform 0.1s linear; }
+        .p-label {
+            position: absolute; top: -16px; left: 0;
+            font-size: 0.7rem; color: #fff; letter-spacing: 1px; font-weight: bold;
+        }
+
+        /* --- MENUS & SCREENS --- */
+        .screen {
+            pointer-events: auto;
+            background: rgba(10, 10, 15, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 50px rgba(0,255,255,0.1), inset 0 0 20px rgba(0, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            width: 90%; max-width: 400px;
+            display: flex; flex-direction: column; align-items: center;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        @keyframes popIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+
+        .hidden { display: none !important; }
+
+        h1 {
+            margin: 0;
+            font-size: 2.8rem;
+            line-height: 1;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: linear-gradient(to bottom, #fff, #0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px rgba(0,255,255,0.6));
+            font-style: italic;
+        }
+
+        h2 { color: #0ff; font-size: 1rem; margin-top: 5px; text-transform: uppercase; letter-spacing: 4px; }
+        p { color: #aaa; font-size: 0.9rem; margin-bottom: 25px; line-height: 1.4; }
+
+        /* Buttons */
+        .menu-btn {
+            width: 100%;
+            padding: 18px;
+            margin: 8px 0;
+            background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(0,255,255,0.1), rgba(0,0,0,0.5));
+            border: 1px solid #0ff;
+            color: #fff;
+            font-family: 'Orbitron';
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: 0.2s;
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+        }
+
+        .menu-btn:active { transform: scale(0.98); }
+        .menu-btn::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: 0.4s;
+        }
+        .menu-btn:hover::before { left: 100%; }
+        .menu-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 25px #0ff; font-weight: 800; }
+
+        .btn-danger { border-color: #f0f; background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(255,0,255,0.1), rgba(0,0,0,0.5)); }
+        .btn-danger:hover { background: #f0f; box-shadow: 0 0 25px #f0f; color: #fff; }
+
+        /* Animations */
+        .shake-anim { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(8px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+
+        #level-indicator {
+            position: absolute;
+            top: 20px; width: 100%; text-align: center;
+            font-size: 1.5rem; color: rgba(255,255,255,0.1);
+            font-weight: 900; pointer-events: none; z-index: 0;
+            letter-spacing: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="level-indicator">LEVEL <span id="lvl-display">1</span></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        
+        <div id="hud">
+            <div class="hud-header">
+                <div class="score-display">
+                    <div id="score-val">0</div>
+                    <div class="sub-score">BEST: <span id="hiscore-val">0</span></div>
+                </div>
+                <div class="hud-controls">
+                    <button class="icon-btn" id="btn-pause">||</button>
+                    <button class="icon-btn" id="btn-reset">↻</button>
+                </div>
+            </div>
+            <div id="powerup-container"></div>
+        </div>
+
+        <div id="menu-screen" class="screen">
+            <h1>DELTON</h1>
+            <h2>GAMING</h2>
+            <p style="margin-top: 15px;">MOVE to STEER<br>HOLD SCREEN/SPACE to SPLIT</p>
+            
+            <button class="menu-btn" id="btn-lvl-1">LEVEL 1 (EASY)</button>
+            <button class="menu-btn" id="btn-lvl-2">LEVEL 2 (NORMAL)</button>
+            <button class="menu-btn btn-danger" id="btn-lvl-3">LEVEL 3 (HARD)</button>
+        </div>
+
+        <div id="pause-screen" class="screen hidden">
+            <h1>PAUSED</h1>
+            <div style="height: 20px;"></div>
+            <button class="menu-btn" id="btn-resume">RESUME</button>
+            <button class="menu-btn" id="btn-restart-pause">RESTART</button>
+            <button class="menu-btn btn-danger" id="btn-menu-pause">EXIT</button>
+        </div>
+
+        <div id="game-over-screen" class="screen hidden">
+            <h1 style="color: #f00; -webkit-text-fill-color: #f00; text-shadow: 0 0 20px #f00;">WASTED</h1>
+            <p style="color: #fff; font-size: 1.2rem; margin: 10px 0;">SCORE: <span id="final-score" style="color:#0ff; font-weight:bold;">0</span></p>
+            <div id="new-record-msg" style="display:none; color: #ff0; font-weight:bold; margin-bottom: 15px; animation: popIn 0.5s infinite alternate;">NEW HIGH SCORE!</div>
+            
+            <button class="menu-btn" id="btn-retry">TRY AGAIN</button>
+            <button class="menu-btn btn-danger" id="btn-menu-over">MAIN MENU</button>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            /**
+             * DELTON GAMING ENGINE - UPGRADED
+             */
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+            const uiLayer = document.getElementById('ui-layer');
+
+            // UI Elements
+            const ui = {
+                menu: document.getElementById('menu-screen'),
+                gameOver: document.getElementById('game-over-screen'),
+                pauseScreen: document.getElementById('pause-screen'),
+                hud: document.getElementById('hud'),
+                scoreVal: document.getElementById('score-val'),
+                hiScoreVal: document.getElementById('hiscore-val'),
+                finalScore: document.getElementById('final-score'),
+                barContainer: document.getElementById('powerup-container'),
+                newRecordMsg: document.getElementById('new-record-msg'),
+                pauseBtn: document.getElementById('btn-pause'),
+                lvlDisplay: document.getElementById('lvl-display')
+            };
+
+            // Game State
+            const state = {
+                isPlaying: false,
+                isPaused: false,
+                score: 0,
+                highScore: localStorage.getItem('delton_highscore') || 0,
+                level: 1,
+                speed: 0,
+                baseSpeed: 0,
+                maxSpeed: 0,
+                frameCount: 0,
+                isSplit: false,
+                multiplier: 1,
+                shake: 0,
+                inputX: 0 // New: Track desired player position
+            };
+
+            // Entities
+            let player;
+            const obstacles = [];
+            const enemies = [];
+            const particles = [];
+            const items = [];
+            const floatingTexts = [];
+            const stars = []; // For background
+            let animationFrameId;
+            let audioCtx;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                state.inputX = canvas.width / 2; // Center player on resize
+            }
+            window.addEventListener('resize', resize);
+            resize();
+            ui.hiScoreVal.innerText = state.highScore;
+
+            // --- HAPTICS & AUDIO ---
+            function vibrate(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
+            
+            function initAudio() {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            }
+
+            function playSound(type) {
+                if (!audioCtx || state.isPaused) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'split') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(500, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.15);
+                } else if (type === 'merge') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(500, now); osc.frequency.linearRampToValueAtTime(150, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now + 0.15);
+                    osc.start(now); osc.stop(now + 0.15);
+                } else if (type === 'coin') {
+                    osc.frequency.setValueAtTime(1200, now); osc.frequency.linearRampToValueAtTime(2000, now + 0.1);
+                    gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.1);
+                    osc.start(now); osc.stop(now + 0.1);
+                } else if (type === 'crash') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.5);
+                    gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
+                    osc.start(now); osc.stop(now + 0.5);
+                }
+            }
+
+            // --- CLASSES ---
+            class Star {
+                constructor() {
+                    this.reset();
+                    this.y = Math.random() * canvas.height; // Spread initially
+                }
+                reset() {
+                    this.x = (Math.random() - 0.5) * canvas.width * 1.5 + canvas.width/2;
+                    this.y = -10;
+                    this.z = Math.random() * 2 + 1; // Depth speed multiplier
+                    this.size = Math.random() * 2;
+                }
+                update() {
+                    this.y += (state.speed * 0.5) * this.z;
+                    if(this.y > canvas.height) this.reset();
+                }
+                draw() {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${this.z/3})`;
+                    ctx.fillRect(this.x, this.y, this.size, this.size * this.z * 3); // Stretch effect
+                }
+            }
+
+            class Player {
+                constructor() {
+                    this.y = canvas.height - 180;
+                    this.x = canvas.width / 2; // Current position
+                    this.spread = 0;
+                    this.maxSpread = 110;
+                    this.shield = false;
+                    this.giantTimer = 0;
+                    this.blitzTimer = 0;
+                    this.scale = 1;
+                    this.trail = []; // {x, y, spread}
+                }
+                update() {
+                    this.y = canvas.height - 180;
+                    
+                    // Smooth movement towards inputX
+                    const moveSpeed = 0.15;
+                    this.x += (state.inputX - this.x) * moveSpeed;
+                    
+                    // Clamp to screen edges
+                    const margin = 20;
+                    if(this.x < margin) this.x = margin;
+                    if(this.x > canvas.width - margin) this.x = canvas.width - margin;
+
+                    const targetSpread = state.isSplit ? this.maxSpread : 0;
+                    this.spread += (targetSpread - this.spread) * 0.25; // Snappier movement
+
+                    // Trail logic
+                    if(state.frameCount % 2 === 0) {
+                        this.trail.push({spread: this.spread, x: this.x, y: this.y, life: 1.0});
+                    }
+                    for(let i=this.trail.length-1; i>=0; i--) {
+                        this.trail[i].y += state.speed; 
+                        this.trail[i].life -= 0.1;
+                        if(this.trail[i].life <= 0) this.trail.splice(i,1);
+                    }
+
+                    // Powerups
+                    const targetScale = (this.giantTimer > 0) ? 2.5 : 1;
+                    this.scale += (targetScale - this.scale) * 0.1;
+
+                    if (this.giantTimer > 0) {
+                        this.giantTimer--;
+                        updateBar('GIGA', this.giantTimer/400, '#f00');
+                        if(this.giantTimer <= 0) removeBar('GIGA');
+                    }
+                    if (this.blitzTimer > 0) {
+                        this.blitzTimer--;
+                        updateBar('BLITZ', this.blitzTimer/600, '#f0f');
+                        if(this.blitzTimer <= 0) { state.multiplier = 1; removeBar('BLITZ'); }
+                    }
+                }
+                draw() {
+                    const cx = this.x; // Use player X instead of center
+                    ctx.save();
+                    
+                    // Draw Trail
+                    this.trail.forEach(t => {
+                        ctx.fillStyle = `rgba(0, 255, 255, ${t.life * 0.3})`;
+                        if(t.spread < 5) ctx.fillRect(t.x - 10, t.y, 20, 10);
+                        else {
+                            ctx.fillRect(t.x - t.spread - 10, t.y, 20, 10);
+                            ctx.fillRect(t.x + t.spread - 10, t.y, 20, 10);
+                        }
+                    });
+
+                    // Shield
+                    if (this.shield) {
+                        ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(state.frameCount*0.2)*0.3})`;
+                        ctx.lineWidth = 3; ctx.shadowBlur = 15; ctx.shadowColor = '#0ff';
+                        ctx.beginPath();
+                        if (this.spread < 10) ctx.arc(cx, this.y, 50 * this.scale, 0, Math.PI*2);
+                        else { 
+                            ctx.arc(cx - this.spread, this.y, 40*this.scale, 0, Math.PI*2); 
+                            ctx.moveTo(cx + this.spread + 40*this.scale, this.y); 
+                            ctx.arc(cx + this.spread, this.y, 40*this.scale, 0, Math.PI*2); 
+                        }
+                        ctx.stroke();
+                    }
+
+                    // Glow Effect
+                    ctx.shadowBlur = this.giantTimer > 0 ? 50 : 25;
+                    const glowColor = this.giantTimer > 0 ? '#f00' : (state.isSplit ? '#f0f' : '#0ff');
+                    ctx.shadowColor = glowColor;
+                    ctx.fillStyle = this.giantTimer > 0 ? '#fff' : glowColor;
+
+                    const s = this.scale;
+
+                    if (this.spread < 5) {
+                        // Merged Shape (Diamond)
+                        ctx.beginPath();
+                        ctx.moveTo(cx, this.y - 25*s);
+                        ctx.lineTo(cx + 20*s, this.y);
+                        ctx.lineTo(cx, this.y + 25*s);
+                        ctx.lineTo(cx - 20*s, this.y);
+                        ctx.fill();
+                        // Core
+                        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, this.y, 8*s, 0, Math.PI*2); ctx.fill();
+                    } else {
+                        // Split Shape (Two Arrows)
+                        ctx.beginPath();
+                        ctx.moveTo(cx - this.spread, this.y - 20*s);
+                        ctx.lineTo(cx - this.spread + 15*s, this.y + 15*s);
+                        ctx.lineTo(cx - this.spread - 15*s, this.y + 15*s);
+                        ctx.fill();
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(cx + this.spread, this.y - 20*s);
+                        ctx.lineTo(cx + this.spread + 15*s, this.y + 15*s);
+                        ctx.lineTo(cx + this.spread - 15*s, this.y + 15*s);
+                        ctx.fill();
+                        
+                        // Electric Arc
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${Math.random()})`;
+                        ctx.lineWidth = 2*s;
+                        ctx.beginPath();
+                        ctx.moveTo(cx - this.spread + 5, this.y);
+                        ctx.lineTo(cx + this.spread - 5, this.y);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+            }
+
+            class Obstacle {
+                constructor(typeOverride) {
+                    this.y = -100;
+                    this.baseWidth = canvas.width < 500 ? 120 : 200;
+                    this.width = this.baseWidth;
+                    this.height = 30;
+                    this.type = typeOverride || (Math.random() > 0.5 ? 'center' : 'sides'); 
+                    
+                    // Moving properties
+                    this.moveType = 'static';
+                    if (state.level > 1 && Math.random() > 0.7) this.moveType = 'sliding';
+                    
+                    this.slideOffset = 0;
+                    // Lowered slide speed for easier gameplay
+                    this.slideSpeed = (Math.random() > 0.5 ? 1.5 : -1.5) * (1 + state.level*0.2);
+
+                    this.passed = false;
+                }
+                update() { 
+                    this.y += state.speed; 
+                    if(this.moveType === 'sliding') {
+                        this.slideOffset += this.slideSpeed;
+                        if(Math.abs(this.slideOffset) > 80) this.slideSpeed *= -1;
+                    }
+                }
+                draw() {
+                    const cx = canvas.width / 2 + this.slideOffset;
+                    ctx.shadowBlur = 15;
+                    
+                    if (this.type === 'center') {
+                        // RED WALL (Requires Split)
+                        ctx.fillStyle = '#ff0044'; ctx.shadowColor = '#ff0044';
+                        ctx.fillRect(cx - this.width/2, this.y, this.width, this.height);
+                        
+                        // Hazard Stripes
+                        ctx.fillStyle = '#000';
+                        for(let i=0; i<this.width; i+=20) {
+                            ctx.beginPath(); ctx.moveTo((cx-this.width/2)+i, this.y); 
+                            ctx.lineTo((cx-this.width/2)+i+10, this.y+this.height);
+                            ctx.lineTo((cx-this.width/2)+i+5, this.y+this.height);
+                            ctx.lineTo((cx-this.width/2)+i-5, this.y); ctx.fill();
+                        }
+                    } else {
+                        // GREEN WALLS (Requires Merge)
+                        ctx.fillStyle = '#00ffaa'; ctx.shadowColor = '#00ffaa';
+                        // Left Block
+                        ctx.fillRect(cx - this.width - 60, this.y, this.width, this.height);
+                        // Right Block
+                        ctx.fillRect(cx + 60, this.y, this.width, this.height);
+                        
+                        // Decoration
+                        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                        ctx.fillRect(cx - this.width - 60, this.y+10, this.width, 10);
+                        ctx.fillRect(cx + 60, this.y+10, this.width, 10);
+                    }
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            class Enemy {
+                constructor() {
+                    this.y = -50;
+                    this.x = Math.random() * canvas.width;
+                    this.size = 20;
+                    this.angle = 0;
+                    this.pulse = 0;
+                }
+                update() {
+                    this.y += state.speed * (1.1 + state.level * 0.05); // Reduced speed
+                    this.angle += 0.1;
+                    this.pulse += 0.2;
+                    // Homing
+                    const cx = player.x; // Target the actual player X
+                    const targetX = state.isSplit ? (this.x < cx ? cx - player.spread : cx + player.spread) : cx;
+                    this.x += (targetX - this.x) * (0.01 + state.level*0.005);
+                }
+                draw() {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+                    const scale = 1 + Math.sin(this.pulse)*0.2;
+                    ctx.scale(scale, scale);
+                    
+                    ctx.shadowBlur = 15; ctx.shadowColor = '#f00'; ctx.fillStyle = '#f00';
+                    // Shuriken Shape
+                    ctx.beginPath();
+                    for(let i=0; i<4; i++) {
+                        ctx.rotate(Math.PI/2);
+                        ctx.moveTo(0,0); ctx.lineTo(15, 15); ctx.lineTo(-15, 15);
+                    }
+                    ctx.fill();
+                    // Core
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            class Item {
+                constructor(type) {
+                    this.y = -100; this.type = type;
+                    // Items align somewhat with player movement to make them reachable
+                    this.x = (Math.random() * (canvas.width - 100)) + 50; 
+                    this.anim = 0;
+                }
+                update() { this.y += state.speed; this.anim += 0.1; }
+                draw() {
+                    const bounce = Math.sin(this.anim) * 5;
+                    ctx.shadowBlur = 20;
+                    if (this.type === 'coin') {
+                        ctx.fillStyle = '#ffcc00'; ctx.shadowColor = '#ffcc00';
+                        ctx.beginPath(); ctx.arc(this.x, this.y, 8, 0, Math.PI*2); ctx.fill();
+                    } else {
+                        let color = '#fff', label = '';
+                        if (this.type === 'shield') { color = '#0ff'; label = 'S'; }
+                        if (this.type === 'giant') { color = '#f00'; label = 'G'; }
+                        if (this.type === 'blitz') { color = '#f0f'; label = 'B'; }
+                        ctx.fillStyle = color; ctx.shadowColor = color;
+                        ctx.beginPath(); ctx.arc(this.x, this.y, 12 + bounce/3, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = '#000'; ctx.font = 'bold 12px Arial'; ctx.shadowBlur=0;
+                        ctx.fillText(label, this.x - 4, this.y + 4);
+                        
+                        ctx.strokeStyle = color; ctx.lineWidth=2; ctx.beginPath();
+                        ctx.arc(this.x, this.y, 20 + bounce, 0, Math.PI*2); ctx.stroke();
+                    }
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            class FloatingText {
+                constructor(x, y, text, color) { this.x = x; this.y = y; this.text = text; this.color = color; this.life = 1.0; }
+                update() { this.y -= 3; this.life -= 0.03; }
+                draw() { 
+                    ctx.globalAlpha = Math.max(0, this.life); 
+                    ctx.fillStyle = this.color; ctx.font = 'bold 20px Orbitron'; 
+                    ctx.fillText(this.text, this.x, this.y); 
+                    ctx.globalAlpha = 1.0; 
+                }
+            }
+
+            // --- PARTICLES ---
+            function createParticles(x, y, color, count=15) {
+                for(let i=0; i<count; i++) {
+                    particles.push({ 
+                        x: x, y: y, 
+                        vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, 
+                        life: 1.0, color: color 
+                    });
+                }
+            }
+            function updateParticles() {
+                for(let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                    if(p.life <= 0) particles.splice(i, 1);
+                    else { 
+                        ctx.globalAlpha = p.life; ctx.fillStyle = p.color; 
+                        ctx.fillRect(p.x, p.y, 4, 4); ctx.globalAlpha = 1.0; 
+                    }
+                }
+            }
+
+            // --- HELPER FUNCTIONS ---
+            function updateBar(id, percent, color) {
+                let el = document.getElementById('bar-'+id);
+                if(!el) {
+                    el = document.createElement('div'); el.id = 'bar-'+id;
+                    el.className = 'p-bar';
+                    el.innerHTML = `<span class="p-label" style="color:${color}">${id}</span><div class="p-fill" style="background:${color}"></div>`;
+                    ui.barContainer.appendChild(el);
+                }
+                el.querySelector('.p-fill').style.transform = `scaleX(${percent})`;
+            }
+            function removeBar(id) { const el = document.getElementById('bar-'+id); if(el) el.remove(); }
+            function shakeScreen(amt) { state.shake = amt; }
+
+            // --- COLLISION LOGIC ---
+            function checkCollisions() {
+                const cx = player.x; // UPDATE: Use player x, not canvas center
+                
+                const smash = (obj, pts) => {
+                    shakeScreen(15); playSound('crash'); vibrate(50);
+                    createParticles(obj.x || cx, obj.y, '#fff', 20);
+                    state.score += pts;
+                    floatingTexts.push(new FloatingText(cx, player.y - 60, "SMASH!", "#fff"));
+                };
+
+                // Obstacles
+                obstacles.forEach(obs => {
+                    // Offset for sliding obstacles + centered coordinate
+                    const obsCx = (canvas.width / 2) + obs.slideOffset;
+                    
+                    // Simple Box Collision for both player parts
+                    const playerYHit = player.y - 20 < obs.y + obs.height && player.y + 20 > obs.y;
+                    
+                    if (playerYHit) {
+                        if (player.giantTimer > 0) { 
+                            if(!obs.passed) { smash(obs, 100); obs.passed=true; } return; 
+                        }
+
+                        let hit = false;
+                        const pSpread = player.spread;
+
+                        if (obs.type === 'center') {
+                            // Center obstacle is at obsCx, width. 
+                            const halfW = obs.width / 2;
+                            // Check if player parts (which are at player.x - spread and player.x + spread) hit
+                            // Left part hit?
+                            if (Math.abs((cx - pSpread) - obsCx) < halfW + 10) hit = true;
+                            // Right part hit?
+                            if (Math.abs((cx + pSpread) - obsCx) < halfW + 10) hit = true;
+                        } else {
+                            // Side obstacles (Gate)
+                            // Hitting left wall?
+                            if ((cx - pSpread) < (obsCx - 60)) hit = true;
+                            // Hitting right wall?
+                            if ((cx + pSpread) > (obsCx + 60)) hit = true;
+                        }
+                        
+                        if (hit) {
+                            if (player.shield) {
+                                player.shield = false; playSound('merge'); vibrate(50);
+                                createParticles(cx, player.y, '#0ff', 20); obs.passed=true;
+                                floatingTexts.push(new FloatingText(cx, player.y-50, "SHIELD BREAK", "#0ff"));
+                            } else if (!obs.passed) { 
+                                createParticles(cx, player.y, '#f00', 30); gameOver(); 
+                            }
+                        }
+                    }
+                });
+
+                // Enemies
+                for(let i=enemies.length-1; i>=0; i--) {
+                    let en = enemies[i];
+                    if(Math.abs(en.y - player.y) < 30*player.scale) {
+                        let hit = false;
+                        let pXs = player.spread < 10 ? [cx] : [cx - player.spread, cx + player.spread];
+                        pXs.forEach(px => { if(Math.abs(en.x - px) < 40*player.scale) hit=true; });
+                        if(hit) {
+                            if(player.giantTimer > 0) { smash(en, 200); enemies.splice(i,1); }
+                            else if(player.shield) {
+                                player.shield=false; playSound('merge'); vibrate(50);
+                                createParticles(en.x, en.y, '#0ff', 20); enemies.splice(i,1);
+                            } else { gameOver(); }
+                        }
+                    }
+                }
+
+                // Items
+                for(let i=items.length-1; i>=0; i--) {
+                    let item = items[i]; let hit=false;
+                    if(Math.abs(item.y - player.y) < 40) {
+                        let pXs = player.spread < 10 ? [cx] : [cx - player.spread, cx + player.spread];
+                        pXs.forEach(px => { if(Math.abs(item.x - px) < 50) hit=true; });
+                    }
+                    if(hit) {
+                        vibrate(20);
+                        if(item.type==='coin') { 
+                            state.score += 50 * state.multiplier; playSound('coin'); 
+                            createParticles(item.x, item.y, '#ffcc00', 8); 
+                            floatingTexts.push(new FloatingText(item.x, item.y, `+${50*state.multiplier}`, '#ffcc00')); 
+                        } else {
+                            playSound('coin'); 
+                            if(item.type==='shield') { player.shield=true; floatingTexts.push(new FloatingText(item.x, item.y, "SHIELD", "#0ff")); }
+                            if(item.type==='giant') { player.giantTimer=400; shakeScreen(5); floatingTexts.push(new FloatingText(item.x, item.y, "GIGA", "#f00")); }
+                            if(item.type==='blitz') { player.blitzTimer=600; state.multiplier=5; floatingTexts.push(new FloatingText(item.x, item.y, "BLITZ x5", "#f0f")); }
+                        }
+                        items.splice(i,1);
+                    }
+                }
+            }
+
+            // --- GAME LOOP ---
+            function drawBackground() {
+                ctx.fillStyle = '#050505'; 
+                ctx.fillRect(0,0,canvas.width, canvas.height);
+                
+                // Stars
+                stars.forEach(s => { s.update(); s.draw(); });
+
+                // Perspective Grid
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = `rgba(0, 255, 255, 0.15)`;
+                const time = state.frameCount * state.speed;
+                const horizon = 0; // Top of screen
+                
+                ctx.beginPath();
+                // Vertical lines (Converging)
+                for (let i = -10; i <= 10; i++) {
+                    let x = canvas.width/2 + i * 100;
+                    ctx.moveTo(x, canvas.height);
+                    ctx.lineTo(canvas.width/2 + i * 10, horizon);
+                }
+                // Horizontal lines (moving down)
+                const gridSpacing = 50;
+                let offset = time % gridSpacing;
+                for(let y = offset; y < canvas.height; y += gridSpacing + (y/10)) { 
+                    ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+                }
+                ctx.stroke();
+            }
+
+            function gameLoop() {
+                if (!state.isPlaying) return;
+                if (state.isPaused) { animationFrameId = requestAnimationFrame(gameLoop); return; }
+
+                // Speed Management
+                let currSpeed = state.baseSpeed + (state.score * 0.0005); // Slower ramp up
+                if(currSpeed > state.maxSpeed) currSpeed = state.maxSpeed;
+                if(player.blitzTimer > 0) currSpeed *= 1.8;
+                state.speed = currSpeed;
+
+                // Shake decay
+                if(state.shake > 0) state.shake *= 0.9;
+                
+                // Clear & Draw BG
+                drawBackground();
+
+                ctx.save();
+                if(state.shake > 0.5) ctx.translate((Math.random()-0.5)*state.shake, (Math.random()-0.5)*state.shake);
+
+                // SPAWNING SYSTEM
+                // INCREASED SPAWN INTERVAL FOR EASIER GAMEPLAY
+                let spawnRate = 600 / state.speed; 
+                if (state.level === 2) spawnRate *= 0.8;
+                if (state.level === 3) spawnRate *= 0.6;
+
+                if (state.frameCount % Math.floor(spawnRate) === 0) obstacles.push(new Obstacle());
+                
+                // Enemy Spawns
+                let enemyRate = spawnRate * (5 - state.level);
+                if (state.frameCount % Math.floor(enemyRate) === 0) enemies.push(new Enemy());
+
+                // Items
+                if (state.frameCount % Math.floor(spawnRate*1.5) === 0 && Math.random()>0.4) {
+                    let r=Math.random(), t='coin';
+                    if(r>0.92) t='giant'; else if(r>0.85) t='blitz'; else if(r>0.80) t='shield';
+                    items.push(new Item(t));
+                }
+
+                // Update & Draw
+                obstacles.forEach((obs, i) => {
+                    obs.update(); obs.draw();
+                    if(!obs.passed && obs.y > player.y) { 
+                        obs.passed=true; state.score+=10*state.multiplier; ui.scoreVal.innerText = Math.floor(state.score);
+                    }
+                    if(obs.y > canvas.height) obstacles.splice(i,1);
+                });
+
+                enemies.forEach((en, i) => { en.update(); en.draw(); if(en.y > canvas.height) enemies.splice(i,1); });
+                items.forEach((it, i) => { it.update(); it.draw(); if(it.y > canvas.height) items.splice(i,1); });
+                floatingTexts.forEach((ft, i) => { ft.update(); ft.draw(); if(ft.life<=0) floatingTexts.splice(i,1); });
+
+                player.update(); player.draw(); updateParticles(); checkCollisions();
+                
+                ctx.restore();
+                state.frameCount++;
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+
+            // --- INPUT ---
+            function handleSplitInput(down) {
+                if(!state.isPlaying || state.isPaused) return;
+                if(down) {
+                    if(!state.isSplit) { state.isSplit=true; playSound('split'); }
+                } else {
+                    if(state.isSplit) { state.isSplit=false; playSound('merge'); }
+                }
+            }
+
+            // NEW: MOVEMENT INPUT HANDLING
+            window.addEventListener('mousemove', (e) => {
+                if(state.isPlaying && !state.isPaused) state.inputX = e.clientX;
+            });
+            window.addEventListener('touchmove', (e) => {
+                if(state.isPlaying && !state.isPaused) {
+                    e.preventDefault(); // Prevent scrolling
+                    state.inputX = e.touches[0].clientX;
+                }
+            }, {passive: false});
+
+            // Split Controls (Mouse Click / Touch Start)
+            window.addEventListener('mousedown', (e) => { if(e.target.tagName !== 'BUTTON') handleSplitInput(true); });
+            window.addEventListener('mouseup', (e) => { if(e.target.tagName !== 'BUTTON') handleSplitInput(false); });
+            
+            window.addEventListener('touchstart', (e) => { 
+                if(e.target.tagName !== 'BUTTON') { 
+                    e.preventDefault(); 
+                    state.inputX = e.touches[0].clientX; // Jump to finger immediately
+                    handleSplitInput(true); 
+                }
+            }, {passive: false});
+            
+            window.addEventListener('touchend', (e) => { 
+                if(e.target.tagName !== 'BUTTON') { 
+                    e.preventDefault(); 
+                    handleSplitInput(false); 
+                }
+            }, {passive: false});
+
+            // Keyboard Controls (Space to Split, Arrows to Move)
+            window.addEventListener('keydown', (e) => {
+                if(e.code==='Space') handleSplitInput(true);
+                if(e.code==='Escape') togglePause();
+                
+                // Keyboard Movement
+                if(state.isPlaying && !state.isPaused) {
+                    const step = 30;
+                    if(e.code==='ArrowLeft') state.inputX -= step;
+                    if(e.code==='ArrowRight') state.inputX += step;
+                }
+            });
+            window.addEventListener('keyup', (e) => { if(e.code==='Space') handleSplitInput(false); });
+
+            // --- SYSTEM ---
+            function startGame(lvl) {
+                vibrate(10);
+                initAudio();
+                state.level = lvl;
+                ui.lvlDisplay.innerText = lvl;
+
+                // Create stars
+                stars.length = 0;
+                for(let i=0; i<50; i++) stars.push(new Star());
+
+                // Balance Levels (EASIER SETTINGS)
+                // Reduced speeds significantly
+                if(lvl===1) { state.baseSpeed=3.5; state.maxSpeed=9; }
+                else if(lvl===2) { state.baseSpeed=6; state.maxSpeed=12; }
+                else { state.baseSpeed=9; state.maxSpeed=18; } 
+
+                resetGame();
+                ui.menu.classList.add('hidden');
+                ui.gameOver.classList.add('hidden');
+                ui.pauseScreen.classList.add('hidden');
+                ui.hud.style.display = 'block';
+                
+                state.isPlaying = true; state.isPaused = false;
+                gameLoop();
+            }
+
+            function resetGame() {
+                state.score=0; state.frameCount=0; state.isSplit=false; state.multiplier=1;
+                state.inputX = canvas.width / 2;
+                obstacles.length=0; enemies.length=0; particles.length=0; items.length=0; floatingTexts.length=0;
+                ui.scoreVal.innerText='0'; ui.barContainer.innerHTML='';
+                player = new Player();
+            }
+
+            function gameOver() {
+                state.isPlaying = false;
+                shakeScreen(20); vibrate([200, 100, 200]);
+                playSound('crash');
+                
+                uiLayer.classList.add('shake-anim'); setTimeout(()=>uiLayer.classList.remove('shake-anim'), 500);
+
+                if(state.score > state.highScore) {
+                    state.highScore = Math.floor(state.score);
+                    localStorage.setItem('delton_highscore', state.highScore);
+                    ui.newRecordMsg.style.display='block';
+                } else { ui.newRecordMsg.style.display='none'; }
+
+                ui.finalScore.innerText = Math.floor(state.score);
+                ui.hiScoreVal.innerText = state.highScore;
+                
+                ui.hud.style.display='none';
+                ui.gameOver.classList.remove('hidden');
+                cancelAnimationFrame(animationFrameId);
+            }
+
+            function togglePause() {
+                vibrate(10);
+                if(!state.isPlaying) return;
+                state.isPaused = !state.isPaused;
+                ui.pauseScreen.classList.toggle('hidden', !state.isPaused);
+                ui.pauseBtn.innerText = state.isPaused ? "▶" : "||";
+            }
+
+            function showMenu() {
+                vibrate(10);
+                state.isPlaying=false; state.isPaused=false;
+                cancelAnimationFrame(animationFrameId);
+                ui.gameOver.classList.add('hidden'); ui.pauseScreen.classList.add('hidden'); ui.hud.style.display='none';
+                ui.menu.classList.remove('hidden');
+            }
+
+            document.getElementById('btn-lvl-1').onclick = () => startGame(1);
+            document.getElementById('btn-lvl-2').onclick = () => startGame(2);
+            document.getElementById('btn-lvl-3').onclick = () => startGame(3);
+            document.getElementById('btn-pause').onclick = togglePause;
+            document.getElementById('btn-reset').onclick = () => startGame(state.level);
+            document.getElementById('btn-resume').onclick = togglePause;
+            document.getElementById('btn-restart-pause').onclick = () => startGame(state.level);
+            document.getElementById('btn-menu-pause').onclick = showMenu;
+            document.getElementById('btn-retry').onclick = () => startGame(state.level);
+            document.getElementById('btn-menu-over').onclick = showMenu;
+        };
+    </script>
+</body>
+</html>
